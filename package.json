@@ -1,0 +1,14 @@
+{
+  "name": "core-mp",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace @core/web run dev",
+    "dev:api": "npm --workspace @core/api run dev",
+    "build": "npm -ws run build"
+  }
+}

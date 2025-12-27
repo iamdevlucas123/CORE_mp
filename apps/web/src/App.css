@@ -1,0 +1,150 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #f4f2ef;
+  color: #1b1b1b;
+}
+
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.header h1 {
+  margin: 0 0 6px;
+  font-size: 32px;
+}
+
+.header p {
+  margin: 0;
+  opacity: 0.7;
+}
+
+.composer {
+  display: grid;
+  grid-template-columns: 1fr 160px 140px;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.composer input,
+.composer select {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #d3d3d3;
+  font-size: 14px;
+}
+
+.composer button {
+  border: none;
+  background: #1f3a5f;
+  color: #fff;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.ghost {
+  background: transparent;
+  border: 1px solid #1f3a5f;
+  padding: 8px 16px;
+  border-radius: 999px;
+  color: #1f3a5f;
+  font-weight: 600;
+}
+
+.error {
+  background: #ffe2e2;
+  color: #8a1f1f;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.loading {
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.column {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 12px 28px rgba(30, 30, 30, 0.08);
+}
+
+.column h2 {
+  margin-top: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 12px;
+  color: #6b6b6b;
+}
+
+.cards {
+  display: grid;
+  gap: 12px;
+}
+
+.card {
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8f6f2;
+  border: 1px solid #ece8e2;
+}
+
+.card p {
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.actions select {
+  flex: 1;
+  border-radius: 8px;
+  border: 1px solid #d3d3d3;
+  padding: 6px 8px;
+}
+
+.actions button {
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.actions .danger {
+  background: #c0392b;
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  .composer {
+    grid-template-columns: 1fr;
+  }
+
+  .board {
+    grid-template-columns: 1fr;
+  }
+}
