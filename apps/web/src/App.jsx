@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { STATUSES } from "@core/shared";
-import "./App.css";
+import Board from "./components/Board.jsx";
+import ContentHeader from "./components/ContentHeader.jsx";
+import Sidebar from "./components/Sidebar.jsx";
+import Tabs from "./components/Tabs.jsx";
+import Topbar from "./components/Topbar.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -96,69 +100,30 @@ export default function App() {
   }, []);
 
   return (
-    <div className="page">
-      <header className="header">
-        <div>
-          <h1>Kanban</h1>
-          <p>Simple board with API + MySQL</p>
-        </div>
-        <button className="ghost" onClick={loadTasks} disabled={loading}>
-          Recarregar
-        </button>
-      </header>
+    <div className="min-h-screen flex flex-col">
+      <Topbar />
 
-      <form className="composer" onSubmit={createTask}>
-        <input
-          type="text"
-          placeholder="Nova tarefa"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-        />
-        <select value={status} onChange={(event) => setStatus(event.target.value)}>
-          {STATUSES.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
-        <button type="submit">Adicionar</button>
-      </form>
+      <div className="grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <Sidebar />
 
-      {error ? <div className="error">{error}</div> : null}
-      {loading ? <div className="loading">Carregando...</div> : null}
+        <main className="min-w-0 px-6 py-6 md:px-8 md:py-8">
+          <ContentHeader loading={loading} onReload={loadTasks} />
+          <Tabs />
 
-      <div className="board">
-        {STATUSES.map((column) => (
-          <section key={column} className="column">
-            <h2>{column}</h2>
-            <div className="cards">
-              {columns[column].map((task) => (
-                <article key={task.id} className="card">
-                  <p>{task.title}</p>
-                  <div className="actions">
-                    <select
-                      value={task.status}
-                      onChange={(event) => updateTask(task.id, event.target.value)}
-                    >
-                      {STATUSES.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      className="danger"
-                      type="button"
-                      onClick={() => deleteTask(task.id)}
-                    >
-                      Remover
-                    </button>
-                  </div>
-                </article>
-              ))}
+          {error ? (
+            <div className="mb-4 rounded-lg bg-red-100 px-3 py-2 text-sm text-red-800">
+              {error}
             </div>
-          </section>
-        ))}
+          ) : null}
+          {loading ? <div className="mb-4 text-sm text-slate-500">Carregando...</div> : null}
+
+          <Board
+            tasks={tasks}
+            columns={columns}
+            onUpdateTask={updateTask}
+            onDeleteTask={deleteTask}
+          />
+        </main>
       </div>
     </div>
   );

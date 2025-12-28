@@ -1,10 +1,11 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { pool, initDb } from "./db.js";
 import { STATUSES } from "@core/shared";
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = process.env.PORT;
 
 app.use(cors());
 app.use(express.json());
