@@ -9,6 +9,7 @@
   "scripts": {
     "dev:web": "npm --workspace @core/web run dev",
     "dev:api": "npm --workspace @core/api run dev",
+    "db:migrate": "npm --workspace @core/api run migrate",
     "build": "npm -ws run build"
   }
 }

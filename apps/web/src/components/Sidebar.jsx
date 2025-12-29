@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useSpaceStore from "../store/spaceStore.js";
 
 export default function Sidebar() {
-  const recents = useSpaceStore((state) => state.recents);
+  const spaces = useSpaceStore((state) => state.spaces);
   const currentSpace = useSpaceStore((state) => state.currentSpace);
+  const loading = useSpaceStore((state) => state.loading);
+  const error = useSpaceStore((state) => state.error);
   const addSpace = useSpaceStore((state) => state.addSpace);
   const selectSpace = useSpaceStore((state) => state.selectSpace);
+  const loadSpaces = useSpaceStore((state) => state.loadSpaces);
   const [showInput, setShowInput] = useState(false);
   const [spaceName, setSpaceName] = useState("");
+
+  useEffect(() => {
+    loadSpaces();
+  }, [loadSpaces]);
 
   function handleAddSpace() {
     const trimmed = spaceName.trim();
@@ -63,18 +70,24 @@ export default function Sidebar() {
         <h5 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           Recente
         </h5>
-        {recents.map((item, index) => (
+        {loading ? (
+          <div className="text-xs text-slate-400">Carregando...</div>
+        ) : null}
+        {error ? (
+          <div className="text-xs text-red-500">{error}</div>
+        ) : null}
+        {spaces.map((item) => (
           <button
-            key={`${item}-${index}`}
+            key={item.id}
             type="button"
             onClick={() => selectSpace(item)}
             className={`w-full rounded-lg px-2 py-2 text-left text-sm ${
-              item === currentSpace
+              item.id === currentSpace?.id
                 ? "bg-blue-50 font-semibold text-blue-600"
                 : "text-slate-500"
             }`}
           >
-            {item}
+            {item.name}
           </button>
         ))}
       </div>

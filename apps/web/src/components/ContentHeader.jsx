@@ -10,7 +10,7 @@ export default function ContentHeader({ loading, onReload }) {
           Espacos
         </p>
         <h1 className="mb-1 font-['Space_Grotesk'] text-2xl font-semibold">
-          {currentSpace}
+          {currentSpace?.name || "Meu espaco"}
         </h1>
         <p className="text-sm text-slate-500">Lista</p>
       </div>
