@@ -1,19 +1,47 @@
 import { Router } from "express";
-import { pool } from "../db.js";
+import { prisma } from "../db.js";
 
 const router = Router();
 
+function toDate(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return new Date(trimmed);
+}
+
+function mapProjectTask(task) {
+  return {
+    id: task.id,
+    project_id: task.projectId,
+    column_id: task.columnId,
+    title: task.title,
+    description: task.description,
+    ticket: task.ticket,
+    team: task.team,
+    assignee: task.assignee,
+    start_date: task.startDate,
+    due_date: task.dueDate,
+    priority: task.priority,
+    created_at: task.createdAt,
+    updated_at: task.updatedAt,
+    column_name: task.column?.name || null,
+  };
+}
+
 async function ensureProjectAccess(projectId, userId) {
-  const [access] = await pool.query(
-    `
-      SELECT 1
-      FROM projects p
-      JOIN space_members sm ON sm.space_id = p.space_id
-      WHERE p.id = ? AND sm.user_id = ?
-    `,
-    [projectId, userId]
-  );
-  return access.length > 0;
+  const access = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      space: {
+        members: {
+          some: { userId },
+        },
+      },
+    },
+    select: { id: true },
+  });
+  return Boolean(access);
 }
 
 router.get("/projects/:projectId/columns", async (req, res) => {
@@ -25,11 +53,19 @@ router.get("/projects/:projectId/columns", async (req, res) => {
   if (!hasAccess) {
     return res.status(403).send("Sem acesso ao projeto");
   }
-  const [rows] = await pool.query(
-    "SELECT id, name, position, created_at FROM columns WHERE project_id = ? ORDER BY position ASC",
-    [projectId]
+  const columns = await prisma.column.findMany({
+    where: { projectId },
+    orderBy: { position: "asc" },
+    select: { id: true, name: true, position: true, createdAt: true },
+  });
+  res.json(
+    columns.map((column) => ({
+      id: column.id,
+      name: column.name,
+      position: column.position,
+      created_at: column.createdAt,
+    }))
   );
-  res.json(rows);
 });
 
 router.post("/projects/:projectId/columns", async (req, res) => {
@@ -48,15 +84,16 @@ router.post("/projects/:projectId/columns", async (req, res) => {
   if (!name) {
     return res.status(400).send("Nome obrigatorio");
   }
-  const [result] = await pool.query(
-    "INSERT INTO columns (project_id, name, position) VALUES (?, ?, ?)",
-    [projectId, name, position]
-  );
-  const [rows] = await pool.query(
-    "SELECT id, name, position, created_at FROM columns WHERE id = ?",
-    [result.insertId]
-  );
-  res.status(201).json(rows[0]);
+  const column = await prisma.column.create({
+    data: { projectId, name, position },
+    select: { id: true, name: true, position: true, createdAt: true },
+  });
+  res.status(201).json({
+    id: column.id,
+    name: column.name,
+    position: column.position,
+    created_at: column.createdAt,
+  });
 });
 
 router.get("/projects/:projectId/tasks", async (req, res) => {
@@ -69,23 +106,15 @@ router.get("/projects/:projectId/tasks", async (req, res) => {
     return res.status(403).send("Sem acesso ao projeto");
   }
   const columnId = req.query.column_id ? Number(req.query.column_id) : null;
-  const params = [projectId];
-  let filter = "WHERE t.project_id = ?";
-  if (Number.isInteger(columnId)) {
-    filter += " AND t.column_id = ?";
-    params.push(columnId);
-  }
-  const [rows] = await pool.query(
-    `
-      SELECT t.*, c.name AS column_name
-      FROM tasks t
-      JOIN columns c ON c.id = t.column_id
-      ${filter}
-      ORDER BY t.id DESC
-    `,
-    params
-  );
-  res.json(rows);
+  const tasks = await prisma.task.findMany({
+    where: {
+      projectId,
+      ...(Number.isInteger(columnId) ? { columnId } : {}),
+    },
+    orderBy: { id: "desc" },
+    include: { column: { select: { name: true } } },
+  });
+  res.json(tasks.map(mapProjectTask));
 });
 
 router.post("/projects/:projectId/tasks", async (req, res) => {
@@ -105,35 +134,23 @@ router.post("/projects/:projectId/tasks", async (req, res) => {
   if (!Number.isInteger(columnId)) {
     return res.status(400).send("Coluna invalida");
   }
-  const [result] = await pool.query(
-    `
-      INSERT INTO tasks
-        (project_id, column_id, title, description, ticket, team, assignee, start_date, due_date, priority)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-    [
+  const task = await prisma.task.create({
+    data: {
       projectId,
       columnId,
       title,
-      req.body.description || null,
-      req.body.ticket || null,
-      req.body.team || null,
-      req.body.assignee || null,
-      req.body.start_date || null,
-      req.body.due_date || null,
-      req.body.priority || "medium",
-    ]
-  );
-  const [rows] = await pool.query(
-    `
-      SELECT t.*, c.name AS column_name
-      FROM tasks t
-      JOIN columns c ON c.id = t.column_id
-      WHERE t.id = ?
-    `,
-    [result.insertId]
-  );
-  res.status(201).json(rows[0]);
+      description: req.body.description || null,
+      ticket: req.body.ticket || null,
+      team: req.body.team || null,
+      assignee: req.body.assignee || null,
+      startDate: toDate(req.body.start_date),
+      dueDate: toDate(req.body.due_date),
+      priority: req.body.priority || "medium",
+    },
+    include: { column: { select: { name: true } } },
+  });
+
+  res.status(201).json(mapProjectTask(task));
 });
 
 export default router;

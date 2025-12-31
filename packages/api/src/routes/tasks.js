@@ -1,22 +1,38 @@
 import { Router } from "express";
 import { STATUSES } from "@core/shared";
-import { pool, getDefaultContext } from "../db.js";
+import { prisma, getDefaultContext } from "../db.js";
 
 const router = Router();
 
+function mapTaskListItem(task) {
+  return {
+    id: task.id,
+    title: task.title,
+    status: task.column?.name || null,
+    created_at: task.createdAt,
+  };
+}
+
+function toDate(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return new Date(trimmed);
+}
+
 router.get("/tasks", async (req, res) => {
   const { projectId } = await getDefaultContext(req.user.id);
-  const [rows] = await pool.query(
-    `
-      SELECT t.id, t.title, c.name AS status, t.created_at
-      FROM tasks t
-      JOIN columns c ON c.id = t.column_id
-      WHERE t.project_id = ?
-      ORDER BY t.id DESC
-    `,
-    [projectId]
-  );
-  res.json(rows);
+  const tasks = await prisma.task.findMany({
+    where: { projectId },
+    orderBy: { id: "desc" },
+    select: {
+      id: true,
+      title: true,
+      createdAt: true,
+      column: { select: { name: true } },
+    },
+  });
+  res.json(tasks.map(mapTaskListItem));
 });
 
 router.post("/tasks", async (req, res) => {
@@ -33,22 +49,21 @@ router.post("/tasks", async (req, res) => {
     return res.status(400).send("Status invalido");
   }
 
-  const [result] = await pool.query(
-    "INSERT INTO tasks (project_id, column_id, title) VALUES (?, ?, ?)",
-    [projectId, column.id, title]
-  );
+  const task = await prisma.task.create({
+    data: {
+      projectId,
+      columnId: column.id,
+      title,
+    },
+    select: {
+      id: true,
+      title: true,
+      createdAt: true,
+      column: { select: { name: true } },
+    },
+  });
 
-  const [rows] = await pool.query(
-    `
-      SELECT t.id, t.title, c.name AS status, t.created_at
-      FROM tasks t
-      JOIN columns c ON c.id = t.column_id
-      WHERE t.id = ?
-    `,
-    [result.insertId]
-  );
-
-  res.status(201).json(rows[0]);
+  res.status(201).json(mapTaskListItem(task));
 });
 
 router.patch("/tasks/:id", async (req, res) => {
@@ -95,12 +110,10 @@ router.patch("/tasks/:id", async (req, res) => {
     return res.status(400).send("Nada para atualizar");
   }
 
-  const fields = [];
-  const values = [];
+  const data = {};
 
   if (title) {
-    fields.push("title = ?");
-    values.push(title);
+    data.title = title;
   }
 
   if (status) {
@@ -109,58 +122,51 @@ router.patch("/tasks/:id", async (req, res) => {
     if (!column) {
       return res.status(400).send("Status invalido");
     }
-    fields.push("column_id = ?");
-    values.push(column.id);
+    data.columnId = column.id;
   } else if (Number.isInteger(columnId)) {
-    fields.push("column_id = ?");
-    values.push(columnId);
+    data.columnId = columnId;
   }
 
   if (description !== undefined) {
-    fields.push("description = ?");
-    values.push(description || null);
+    data.description = description || null;
   }
   if (ticket !== undefined) {
-    fields.push("ticket = ?");
-    values.push(ticket || null);
+    data.ticket = ticket || null;
   }
   if (team !== undefined) {
-    fields.push("team = ?");
-    values.push(team || null);
+    data.team = team || null;
   }
   if (assignee !== undefined) {
-    fields.push("assignee = ?");
-    values.push(assignee || null);
+    data.assignee = assignee || null;
   }
   if (startDate !== undefined) {
-    fields.push("start_date = ?");
-    values.push(startDate || null);
+    data.startDate = toDate(startDate);
   }
   if (dueDate !== undefined) {
-    fields.push("due_date = ?");
-    values.push(dueDate || null);
+    data.dueDate = toDate(dueDate);
   }
   if (priority) {
-    fields.push("priority = ?");
-    values.push(priority);
+    data.priority = priority;
   }
 
-  if (fields.length) {
-    values.push(id);
-    await pool.query(`UPDATE tasks SET ${fields.join(", ")} WHERE id = ?`, values);
+  if (Object.keys(data).length) {
+    await prisma.task.update({
+      where: { id },
+      data,
+    });
   }
 
-  const [rows] = await pool.query(
-    `
-      SELECT t.id, t.title, c.name AS status, t.created_at
-      FROM tasks t
-      JOIN columns c ON c.id = t.column_id
-      WHERE t.id = ?
-    `,
-    [id]
-  );
+  const task = await prisma.task.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      title: true,
+      createdAt: true,
+      column: { select: { name: true } },
+    },
+  });
 
-  res.json(rows[0]);
+  res.json(mapTaskListItem(task));
 });
 
 router.delete("/tasks/:id", async (req, res) => {
@@ -169,7 +175,7 @@ router.delete("/tasks/:id", async (req, res) => {
     return res.status(400).send("ID invalido");
   }
 
-  await pool.query("DELETE FROM tasks WHERE id = ?", [id]);
+  await prisma.task.deleteMany({ where: { id } });
   res.status(204).end();
 });
 

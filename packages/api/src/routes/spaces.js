@@ -1,20 +1,25 @@
 import { Router } from "express";
-import { pool } from "../db.js";
+import { prisma } from "../db.js";
 
 const router = Router();
 
 router.get("/spaces", async (req, res) => {
-  const [rows] = await pool.query(
-    `
-      SELECT s.id, s.name, s.created_at
-      FROM spaces s
-      JOIN space_members sm ON sm.space_id = s.id
-      WHERE sm.user_id = ?
-      ORDER BY s.id ASC
-    `,
-    [req.user.id]
+  const spaces = await prisma.space.findMany({
+    where: {
+      members: {
+        some: { userId: req.user.id },
+      },
+    },
+    orderBy: { id: "asc" },
+    select: { id: true, name: true, createdAt: true },
+  });
+  res.json(
+    spaces.map((space) => ({
+      id: space.id,
+      name: space.name,
+      created_at: space.createdAt,
+    }))
   );
-  res.json(rows);
 });
 
 router.post("/spaces", async (req, res) => {
@@ -22,18 +27,23 @@ router.post("/spaces", async (req, res) => {
   if (!name) {
     return res.status(400).send("Nome obrigatorio");
   }
-  const [result] = await pool.query("INSERT INTO spaces (name) VALUES (?)", [
-    name,
-  ]);
-  await pool.query(
-    "INSERT INTO space_members (space_id, user_id, role) VALUES (?, ?, 'owner')",
-    [result.insertId, req.user.id]
-  );
-  const [rows] = await pool.query(
-    "SELECT id, name, created_at FROM spaces WHERE id = ?",
-    [result.insertId]
-  );
-  res.status(201).json(rows[0]);
+  const space = await prisma.space.create({
+    data: {
+      name,
+      members: {
+        create: {
+          userId: req.user.id,
+          role: "owner",
+        },
+      },
+    },
+    select: { id: true, name: true, createdAt: true },
+  });
+  res.status(201).json({
+    id: space.id,
+    name: space.name,
+    created_at: space.createdAt,
+  });
 });
 
 router.get("/spaces/:spaceId/projects", async (req, res) => {
@@ -41,18 +51,25 @@ router.get("/spaces/:spaceId/projects", async (req, res) => {
   if (!Number.isInteger(spaceId)) {
     return res.status(400).send("ID invalido");
   }
-  const [access] = await pool.query(
-    "SELECT 1 FROM space_members WHERE space_id = ? AND user_id = ?",
-    [spaceId, req.user.id]
-  );
-  if (!access.length) {
+  const membership = await prisma.spaceMember.findFirst({
+    where: { spaceId, userId: req.user.id },
+    select: { id: true },
+  });
+  if (!membership) {
     return res.status(403).send("Sem acesso ao espaco");
   }
-  const [rows] = await pool.query(
-    "SELECT id, name, created_at FROM projects WHERE space_id = ? ORDER BY id ASC",
-    [spaceId]
+  const projects = await prisma.project.findMany({
+    where: { spaceId },
+    orderBy: { id: "asc" },
+    select: { id: true, name: true, createdAt: true },
+  });
+  res.json(
+    projects.map((project) => ({
+      id: project.id,
+      name: project.name,
+      created_at: project.createdAt,
+    }))
   );
-  res.json(rows);
 });
 
 router.post("/spaces/:spaceId/projects", async (req, res) => {
@@ -60,26 +77,26 @@ router.post("/spaces/:spaceId/projects", async (req, res) => {
   if (!Number.isInteger(spaceId)) {
     return res.status(400).send("ID invalido");
   }
-  const [access] = await pool.query(
-    "SELECT 1 FROM space_members WHERE space_id = ? AND user_id = ?",
-    [spaceId, req.user.id]
-  );
-  if (!access.length) {
+  const membership = await prisma.spaceMember.findFirst({
+    where: { spaceId, userId: req.user.id },
+    select: { id: true },
+  });
+  if (!membership) {
     return res.status(403).send("Sem acesso ao espaco");
   }
   const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
   if (!name) {
     return res.status(400).send("Nome obrigatorio");
   }
-  const [result] = await pool.query(
-    "INSERT INTO projects (space_id, name) VALUES (?, ?)",
-    [spaceId, name]
-  );
-  const [rows] = await pool.query(
-    "SELECT id, name, created_at FROM projects WHERE id = ?",
-    [result.insertId]
-  );
-  res.status(201).json(rows[0]);
+  const project = await prisma.project.create({
+    data: { spaceId, name },
+    select: { id: true, name: true, createdAt: true },
+  });
+  res.status(201).json({
+    id: project.id,
+    name: project.name,
+    created_at: project.createdAt,
+  });
 });
 
 export default router;

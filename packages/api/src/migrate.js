@@ -1,8 +1,7 @@
-import "dotenv/config";
-import { runMigrations } from "./db.js";
+import { execSync } from "node:child_process";
 
 try {
-  await runMigrations();
+  execSync("npx prisma migrate deploy", { stdio: "inherit" });
   console.log("Migrations applied.");
   process.exit(0);
 } catch (err) {
